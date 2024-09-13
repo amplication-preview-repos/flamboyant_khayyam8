@@ -13,6 +13,12 @@ import * as graphql from "@nestjs/graphql";
 import { GraphQLError } from "graphql";
 import { isRecordNotFoundError } from "../../prisma.util";
 import { MetaQueryPayload } from "../../util/MetaQueryPayload";
+import * as nestAccessControl from "nest-access-control";
+import * as gqlACGuard from "../../auth/gqlAC.guard";
+import { GqlDefaultAuthGuard } from "../../auth/gqlDefaultAuth.guard";
+import * as common from "@nestjs/common";
+import { AclFilterResponseInterceptor } from "../../interceptors/aclFilterResponse.interceptor";
+import { AclValidateRequestInterceptor } from "../../interceptors/aclValidateRequest.interceptor";
 import { Record } from "./Record";
 import { RecordCountArgs } from "./RecordCountArgs";
 import { RecordFindManyArgs } from "./RecordFindManyArgs";
@@ -22,10 +28,20 @@ import { UpdateRecordArgs } from "./UpdateRecordArgs";
 import { DeleteRecordArgs } from "./DeleteRecordArgs";
 import { File } from "../../file/base/File";
 import { RecordService } from "../record.service";
+@common.UseGuards(GqlDefaultAuthGuard, gqlACGuard.GqlACGuard)
 @graphql.Resolver(() => Record)
 export class RecordResolverBase {
-  constructor(protected readonly service: RecordService) {}
+  constructor(
+    protected readonly service: RecordService,
+    protected readonly rolesBuilder: nestAccessControl.RolesBuilder
+  ) {}
 
+  @graphql.Query(() => MetaQueryPayload)
+  @nestAccessControl.UseRoles({
+    resource: "Record",
+    action: "read",
+    possession: "any",
+  })
   async _recordsMeta(
     @graphql.Args() args: RecordCountArgs
   ): Promise<MetaQueryPayload> {
@@ -35,12 +51,24 @@ export class RecordResolverBase {
     };
   }
 
+  @common.UseInterceptors(AclFilterResponseInterceptor)
   @graphql.Query(() => [Record])
+  @nestAccessControl.UseRoles({
+    resource: "Record",
+    action: "read",
+    possession: "any",
+  })
   async records(@graphql.Args() args: RecordFindManyArgs): Promise<Record[]> {
     return this.service.records(args);
   }
 
+  @common.UseInterceptors(AclFilterResponseInterceptor)
   @graphql.Query(() => Record, { nullable: true })
+  @nestAccessControl.UseRoles({
+    resource: "Record",
+    action: "read",
+    possession: "own",
+  })
   async record(
     @graphql.Args() args: RecordFindUniqueArgs
   ): Promise<Record | null> {
@@ -51,7 +79,13 @@ export class RecordResolverBase {
     return result;
   }
 
+  @common.UseInterceptors(AclValidateRequestInterceptor)
   @graphql.Mutation(() => Record)
+  @nestAccessControl.UseRoles({
+    resource: "Record",
+    action: "create",
+    possession: "any",
+  })
   async createRecord(@graphql.Args() args: CreateRecordArgs): Promise<Record> {
     return await this.service.createRecord({
       ...args,
@@ -67,7 +101,13 @@ export class RecordResolverBase {
     });
   }
 
+  @common.UseInterceptors(AclValidateRequestInterceptor)
   @graphql.Mutation(() => Record)
+  @nestAccessControl.UseRoles({
+    resource: "Record",
+    action: "update",
+    possession: "any",
+  })
   async updateRecord(
     @graphql.Args() args: UpdateRecordArgs
   ): Promise<Record | null> {
@@ -95,6 +135,11 @@ export class RecordResolverBase {
   }
 
   @graphql.Mutation(() => Record)
+  @nestAccessControl.UseRoles({
+    resource: "Record",
+    action: "delete",
+    possession: "any",
+  })
   async deleteRecord(
     @graphql.Args() args: DeleteRecordArgs
   ): Promise<Record | null> {
@@ -110,9 +155,15 @@ export class RecordResolverBase {
     }
   }
 
+  @common.UseInterceptors(AclFilterResponseInterceptor)
   @graphql.ResolveField(() => File, {
     nullable: true,
     name: "file",
+  })
+  @nestAccessControl.UseRoles({
+    resource: "File",
+    action: "read",
+    possession: "any",
   })
   async getFile(@graphql.Parent() parent: Record): Promise<File | null> {
     const result = await this.service.getFile(parent.id);

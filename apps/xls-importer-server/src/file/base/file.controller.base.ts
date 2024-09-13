@@ -16,7 +16,11 @@ import * as errors from "../../errors";
 import { Request } from "express";
 import { plainToClass } from "class-transformer";
 import { ApiNestedQuery } from "../../decorators/api-nested-query.decorator";
+import * as nestAccessControl from "nest-access-control";
+import * as defaultAuthGuard from "../../auth/defaultAuth.guard";
 import { FileService } from "../file.service";
+import { AclValidateRequestInterceptor } from "../../interceptors/aclValidateRequest.interceptor";
+import { AclFilterResponseInterceptor } from "../../interceptors/aclFilterResponse.interceptor";
 import { FileCreateInput } from "./FileCreateInput";
 import { File } from "./File";
 import { FileFindManyArgs } from "./FileFindManyArgs";
@@ -26,10 +30,24 @@ import { RecordFindManyArgs } from "../../record/base/RecordFindManyArgs";
 import { Record } from "../../record/base/Record";
 import { RecordWhereUniqueInput } from "../../record/base/RecordWhereUniqueInput";
 
+@swagger.ApiBearerAuth()
+@common.UseGuards(defaultAuthGuard.DefaultAuthGuard, nestAccessControl.ACGuard)
 export class FileControllerBase {
-  constructor(protected readonly service: FileService) {}
+  constructor(
+    protected readonly service: FileService,
+    protected readonly rolesBuilder: nestAccessControl.RolesBuilder
+  ) {}
+  @common.UseInterceptors(AclValidateRequestInterceptor)
   @common.Post()
   @swagger.ApiCreatedResponse({ type: File })
+  @nestAccessControl.UseRoles({
+    resource: "File",
+    action: "create",
+    possession: "any",
+  })
+  @swagger.ApiForbiddenResponse({
+    type: errors.ForbiddenException,
+  })
   async createFile(@common.Body() data: FileCreateInput): Promise<File> {
     return await this.service.createFile({
       data: data,
@@ -43,9 +61,18 @@ export class FileControllerBase {
     });
   }
 
+  @common.UseInterceptors(AclFilterResponseInterceptor)
   @common.Get()
   @swagger.ApiOkResponse({ type: [File] })
   @ApiNestedQuery(FileFindManyArgs)
+  @nestAccessControl.UseRoles({
+    resource: "File",
+    action: "read",
+    possession: "any",
+  })
+  @swagger.ApiForbiddenResponse({
+    type: errors.ForbiddenException,
+  })
   async files(@common.Req() request: Request): Promise<File[]> {
     const args = plainToClass(FileFindManyArgs, request.query);
     return this.service.files({
@@ -60,9 +87,18 @@ export class FileControllerBase {
     });
   }
 
+  @common.UseInterceptors(AclFilterResponseInterceptor)
   @common.Get("/:id")
   @swagger.ApiOkResponse({ type: File })
   @swagger.ApiNotFoundResponse({ type: errors.NotFoundException })
+  @nestAccessControl.UseRoles({
+    resource: "File",
+    action: "read",
+    possession: "own",
+  })
+  @swagger.ApiForbiddenResponse({
+    type: errors.ForbiddenException,
+  })
   async file(
     @common.Param() params: FileWhereUniqueInput
   ): Promise<File | null> {
@@ -84,9 +120,18 @@ export class FileControllerBase {
     return result;
   }
 
+  @common.UseInterceptors(AclValidateRequestInterceptor)
   @common.Patch("/:id")
   @swagger.ApiOkResponse({ type: File })
   @swagger.ApiNotFoundResponse({ type: errors.NotFoundException })
+  @nestAccessControl.UseRoles({
+    resource: "File",
+    action: "update",
+    possession: "any",
+  })
+  @swagger.ApiForbiddenResponse({
+    type: errors.ForbiddenException,
+  })
   async updateFile(
     @common.Param() params: FileWhereUniqueInput,
     @common.Body() data: FileUpdateInput
@@ -116,6 +161,14 @@ export class FileControllerBase {
   @common.Delete("/:id")
   @swagger.ApiOkResponse({ type: File })
   @swagger.ApiNotFoundResponse({ type: errors.NotFoundException })
+  @nestAccessControl.UseRoles({
+    resource: "File",
+    action: "delete",
+    possession: "any",
+  })
+  @swagger.ApiForbiddenResponse({
+    type: errors.ForbiddenException,
+  })
   async deleteFile(
     @common.Param() params: FileWhereUniqueInput
   ): Promise<File | null> {
@@ -140,8 +193,14 @@ export class FileControllerBase {
     }
   }
 
+  @common.UseInterceptors(AclFilterResponseInterceptor)
   @common.Get("/:id/records")
   @ApiNestedQuery(RecordFindManyArgs)
+  @nestAccessControl.UseRoles({
+    resource: "Record",
+    action: "read",
+    possession: "any",
+  })
   async findRecords(
     @common.Req() request: Request,
     @common.Param() params: FileWhereUniqueInput
@@ -172,6 +231,11 @@ export class FileControllerBase {
   }
 
   @common.Post("/:id/records")
+  @nestAccessControl.UseRoles({
+    resource: "File",
+    action: "update",
+    possession: "any",
+  })
   async connectRecords(
     @common.Param() params: FileWhereUniqueInput,
     @common.Body() body: RecordWhereUniqueInput[]
@@ -189,6 +253,11 @@ export class FileControllerBase {
   }
 
   @common.Patch("/:id/records")
+  @nestAccessControl.UseRoles({
+    resource: "File",
+    action: "update",
+    possession: "any",
+  })
   async updateRecords(
     @common.Param() params: FileWhereUniqueInput,
     @common.Body() body: RecordWhereUniqueInput[]
@@ -206,6 +275,11 @@ export class FileControllerBase {
   }
 
   @common.Delete("/:id/records")
+  @nestAccessControl.UseRoles({
+    resource: "File",
+    action: "update",
+    possession: "any",
+  })
   async disconnectRecords(
     @common.Param() params: FileWhereUniqueInput,
     @common.Body() body: RecordWhereUniqueInput[]

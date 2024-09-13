@@ -13,6 +13,12 @@ import * as graphql from "@nestjs/graphql";
 import { GraphQLError } from "graphql";
 import { isRecordNotFoundError } from "../../prisma.util";
 import { MetaQueryPayload } from "../../util/MetaQueryPayload";
+import * as nestAccessControl from "nest-access-control";
+import * as gqlACGuard from "../../auth/gqlAC.guard";
+import { GqlDefaultAuthGuard } from "../../auth/gqlDefaultAuth.guard";
+import * as common from "@nestjs/common";
+import { AclFilterResponseInterceptor } from "../../interceptors/aclFilterResponse.interceptor";
+import { AclValidateRequestInterceptor } from "../../interceptors/aclValidateRequest.interceptor";
 import { File } from "./File";
 import { FileCountArgs } from "./FileCountArgs";
 import { FileFindManyArgs } from "./FileFindManyArgs";
@@ -23,10 +29,20 @@ import { DeleteFileArgs } from "./DeleteFileArgs";
 import { RecordFindManyArgs } from "../../record/base/RecordFindManyArgs";
 import { Record } from "../../record/base/Record";
 import { FileService } from "../file.service";
+@common.UseGuards(GqlDefaultAuthGuard, gqlACGuard.GqlACGuard)
 @graphql.Resolver(() => File)
 export class FileResolverBase {
-  constructor(protected readonly service: FileService) {}
+  constructor(
+    protected readonly service: FileService,
+    protected readonly rolesBuilder: nestAccessControl.RolesBuilder
+  ) {}
 
+  @graphql.Query(() => MetaQueryPayload)
+  @nestAccessControl.UseRoles({
+    resource: "File",
+    action: "read",
+    possession: "any",
+  })
   async _filesMeta(
     @graphql.Args() args: FileCountArgs
   ): Promise<MetaQueryPayload> {
@@ -36,12 +52,24 @@ export class FileResolverBase {
     };
   }
 
+  @common.UseInterceptors(AclFilterResponseInterceptor)
   @graphql.Query(() => [File])
+  @nestAccessControl.UseRoles({
+    resource: "File",
+    action: "read",
+    possession: "any",
+  })
   async files(@graphql.Args() args: FileFindManyArgs): Promise<File[]> {
     return this.service.files(args);
   }
 
+  @common.UseInterceptors(AclFilterResponseInterceptor)
   @graphql.Query(() => File, { nullable: true })
+  @nestAccessControl.UseRoles({
+    resource: "File",
+    action: "read",
+    possession: "own",
+  })
   async file(@graphql.Args() args: FileFindUniqueArgs): Promise<File | null> {
     const result = await this.service.file(args);
     if (result === null) {
@@ -50,7 +78,13 @@ export class FileResolverBase {
     return result;
   }
 
+  @common.UseInterceptors(AclValidateRequestInterceptor)
   @graphql.Mutation(() => File)
+  @nestAccessControl.UseRoles({
+    resource: "File",
+    action: "create",
+    possession: "any",
+  })
   async createFile(@graphql.Args() args: CreateFileArgs): Promise<File> {
     return await this.service.createFile({
       ...args,
@@ -58,7 +92,13 @@ export class FileResolverBase {
     });
   }
 
+  @common.UseInterceptors(AclValidateRequestInterceptor)
   @graphql.Mutation(() => File)
+  @nestAccessControl.UseRoles({
+    resource: "File",
+    action: "update",
+    possession: "any",
+  })
   async updateFile(@graphql.Args() args: UpdateFileArgs): Promise<File | null> {
     try {
       return await this.service.updateFile({
@@ -76,6 +116,11 @@ export class FileResolverBase {
   }
 
   @graphql.Mutation(() => File)
+  @nestAccessControl.UseRoles({
+    resource: "File",
+    action: "delete",
+    possession: "any",
+  })
   async deleteFile(@graphql.Args() args: DeleteFileArgs): Promise<File | null> {
     try {
       return await this.service.deleteFile(args);
@@ -89,7 +134,13 @@ export class FileResolverBase {
     }
   }
 
+  @common.UseInterceptors(AclFilterResponseInterceptor)
   @graphql.ResolveField(() => [Record], { name: "records" })
+  @nestAccessControl.UseRoles({
+    resource: "Record",
+    action: "read",
+    possession: "any",
+  })
   async findRecords(
     @graphql.Parent() parent: File,
     @graphql.Args() args: RecordFindManyArgs
