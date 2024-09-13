@@ -1,6 +1,7 @@
 import { Module } from "@nestjs/common";
 import { FileModule } from "./file/file.module";
 import { RecordModule } from "./record/record.module";
+import { AuthModule } from "./auth/auth.module";
 import { HealthModule } from "./health/health.module";
 import { PrismaModule } from "./prisma/prisma.module";
 import { SecretsManagerModule } from "./providers/secrets/secretsManager.module";
@@ -15,6 +16,7 @@ import { ApolloDriver, ApolloDriverConfig } from "@nestjs/apollo";
   imports: [
     FileModule,
     RecordModule,
+    AuthModule,
     HealthModule,
     PrismaModule,
     SecretsManagerModule,
