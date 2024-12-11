@@ -1,0 +1,38 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DB_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model File {
+  createdAt DateTime @default(now())
+  fileData  Json?
+  fileName  String?
+  id        String   @id @default(cuid())
+  records   Record[]
+  updatedAt DateTime @updatedAt
+}
+
+model Record {
+  createdAt  DateTime @default(now())
+  file       File?    @relation(fields: [fileId], references: [id])
+  fileId     String?
+  id         String   @id @default(cuid())
+  recordData Json?
+  updatedAt  DateTime @updatedAt
+}
+
+model User {
+  createdAt DateTime @default(now())
+  email     String?  @unique
+  firstName String?
+  id        String   @id @default(cuid())
+  lastName  String?
+  password  String
+  roles     Json
+  updatedAt DateTime @updatedAt
+  username  String   @unique
+}
